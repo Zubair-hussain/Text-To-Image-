@@ -1,7 +1,6 @@
 import streamlit as st
 from diffusers import DiffusionPipeline
 import torch
-from PIL import Image
 
 # ---------- STYLING ----------
 st.set_page_config(page_title="Image Prompt Tool", layout="centered")
@@ -50,15 +49,14 @@ st.markdown("<div class='centered-title'>Image Prompt Interface</div>", unsafe_a
 prompt = st.text_input(" ", placeholder="Describe your image...", key="prompt")
 
 # ---------- LOAD PIPELINE ----------
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def load_pipeline():
     pipe = DiffusionPipeline.from_pretrained(
-        "stabilityai/stable-diffusion-xl-base-1.0",
-        torch_dtype=torch.float16,
-        use_safetensors=True,
-        variant="fp16"
+        "runwayml/stable-diffusion-v1-5",   # lighter, more compatible model
+        torch_dtype=torch.float32           # float32 for CPU compatibility
     )
-    pipe.to("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    pipe.to(device)
     return pipe
 
 pipe = load_pipeline()
@@ -73,4 +71,3 @@ if st.button("Submit", use_container_width=True):
             st.markdown("<div class='image-container'>", unsafe_allow_html=True)
             st.image(image, caption="Generated Image", use_column_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
-
