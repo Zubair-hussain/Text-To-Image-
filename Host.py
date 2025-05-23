@@ -1,3 +1,21 @@
+# --------- AUTO-INSTALL REQUIRED LIBRARIES ----------
+import subprocess
+import sys
+
+required_packages = [
+    "diffusers",
+    "transformers",
+    "accelerate",
+    "safetensors",
+    "torch",
+    "streamlit",
+    "Pillow"
+]
+
+for pkg in required_packages:
+    subprocess.call([sys.executable, "-m", "pip", "install", pkg])
+
+# --------- STREAMLIT APP CODE ----------
 import streamlit as st
 from diffusers import StableDiffusionPipeline
 import torch
@@ -58,7 +76,7 @@ def load_pipeline():
         "CompVis/stable-diffusion-v1-4",
         torch_dtype=torch.float32
     )
-    pipe.to("cpu")  # Required for Streamlit Cloud (no GPU)
+    pipe.to("cpu")  # Required for CPU-only environments (e.g., Streamlit Cloud)
     return pipe
 
 pipe = load_pipeline()
