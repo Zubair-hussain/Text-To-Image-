@@ -3,5 +3,4 @@ torch
 diffusers
 transformers
 safetensors
-invisible_watermark
 accelerate
