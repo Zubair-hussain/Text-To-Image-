@@ -1,6 +1,7 @@
 import streamlit as st
-from diffusers import DiffusionPipeline
+from diffusers import StableDiffusionPipeline
 import torch
+from PIL import Image
 
 # ---------- STYLING ----------
 st.set_page_config(page_title="Image Prompt Tool", layout="centered")
@@ -11,7 +12,7 @@ st.markdown("""
             text-align: center;
             font-family: Arial, sans-serif;
             font-size: 32px;
-            color: #333;
+            color: #ffffff;
             margin-top: 30px;
             margin-bottom: 20px;
         }
@@ -49,14 +50,13 @@ st.markdown("<div class='centered-title'>Image Prompt Interface</div>", unsafe_a
 prompt = st.text_input(" ", placeholder="Describe your image...", key="prompt")
 
 # ---------- LOAD PIPELINE ----------
-@st.cache_resource(show_spinner=False)
+@st.cache_resource
 def load_pipeline():
-    pipe = DiffusionPipeline.from_pretrained(
-        "runwayml/stable-diffusion-v1-5",   # lighter, more compatible model
-        torch_dtype=torch.float32           # float32 for CPU compatibility
+    pipe = StableDiffusionPipeline.from_pretrained(
+        "CompVis/stable-diffusion-v1-4",
+        torch_dtype=torch.float32,
     )
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    pipe.to(device)
+    pipe.to("cpu")  # CPU-safe for Streamlit Cloud
     return pipe
 
 pipe = load_pipeline()
