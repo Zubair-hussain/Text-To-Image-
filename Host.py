@@ -1,113 +1,92 @@
+#  Install dependencies before running (in Colab or locally)
+# !pip install streamlit diffusers transformers accelerate safetensors pyngrok python-dotenv --quiet
+
+import os
+import threading
+from dotenv import load_dotenv
+from pyngrok import ngrok
 import streamlit as st
 from diffusers import StableDiffusionPipeline
 import torch
-from PIL import Image
-import os
 
-# ---------- STREAMLIT PAGE CONFIG ----------
-st.set_page_config(page_title="Premium Text to Image", layout="centered")
+#  Load environment variables from .env (Optional)
+load_dotenv()
 
-# ---------- CUSTOM STYLES ----------
-st.markdown("""
-    <style>
-        body {
-            background-color: #0f0f0f;
-            font-family: 'Helvetica Neue', sans-serif;
-        }
+# OPTIONAL: Set Ngrok token (if using ngrok auth token)
+NGROK_AUTH_TOKEN = os.getenv("NGROK_AUTH_TOKEN")  # <-- Make sure to define this in your local .env
+if NGROK_AUTH_TOKEN:
+    ngrok.set_auth_token(NGROK_AUTH_TOKEN)
+
+# Kill previous tunnels
+ngrok.kill()
+
+# ---------- Streamlit App ----------
+def write_app():
+    st.set_page_config(page_title="Text to Image", layout="centered")
+
+    st.markdown("""<style>
+        .main { background-color: #0f0f0f; color: white; min-height: 100vh; padding: 30px 20px; }
         .centered-title {
-            text-align: center;
-            font-size: 40px;
-            font-weight: bold;
-            background: linear-gradient(270deg, #ffffff, #aaaaaa, #ffffff);
-            background-size: 400% 400%;
-            color: transparent;
+            font-size: 42px; font-weight: 700;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
             -webkit-background-clip: text;
-            animation: shimmer 6s ease infinite;
-            margin-top: 30px;
-            margin-bottom: 10px;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 40px; text-align: center;
         }
-        @keyframes shimmer {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        .input-container input {
+            width: 100%; max-width: 700px; font-size: 18px;
+            padding: 14px 20px; border-radius: 30px;
+            border: 2px solid #4facfe; background-color: #1e1e1e;
+            color: white; margin-bottom: 20px;
         }
-        .stTextInput>div>div>input {
-            font-size: 18px;
-            padding: 12px 16px;
-            border-radius: 50px;
-            border: 2px solid #555;
-            background-color: #1f1f1f;
-            color: white;
+        .image-container img {
+            border-radius: 20px; max-width: 100%;
+            box-shadow: 0 0 15px #00f2fe88;
         }
-        .submit-button {
-            position: absolute;
-            right: 20px;
-            top: 6px;
-            background-color: #4CAF50;
-            border-radius: 50%;
-            border: none;
-            height: 42px;
-            width: 42px;
-            color: white;
-            font-size: 18px;
-            cursor: pointer;
-        }
-        .image-container {
-            text-align: center;
-            margin-top: 30px;
-        }
-        .description {
-            color: #bbb;
-            font-size: 16px;
-            margin-top: 20px;
-            text-align: center;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-    </style>
-""", unsafe_allow_html=True)
+    </style>""", unsafe_allow_html=True)
 
-# ---------- TITLE ----------
-st.markdown("<div class='centered-title'>Premium Text to Image</div>", unsafe_allow_html=True)
+    st.markdown('<div class="centered-title">Text to Image</div>', unsafe_allow_html=True)
+    prompt = st.text_input("", placeholder="Describe an image...")
 
-# ---------- INPUT PROMPT ----------
-col1, col2 = st.columns([8, 1])
-with col1:
-    prompt = st.text_input("", placeholder="Describe an image...", key="prompt")
-with col2:
-    submit = st.button("➤", key="submit_btn")  # Unicode for ➤
+    if st.button("Generate ➤"):
+        if not prompt.strip():
+            st.warning("Please enter a prompt.")
+        else:
+            with st.spinner("Generating image..."):
+                pipe = load_pipeline()
+                result = pipe(prompt)
+                image = result.images[0]
+                st.markdown('<div class="image-container">', unsafe_allow_html=True)
+                st.image(image, caption="Generated Image", use_column_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-# ---------- LOAD PIPELINE ----------
-@st.cache_resource
+    st.markdown("""
+    <div style='color:#bbb; text-align:center; margin-top:40px;'>
+    <strong>Tip:</strong> Use rich prompts like 
+    <br><em>"A futuristic city skyline at night, in cyberpunk style"</em><br>
+    for best results.
+    </div>
+    """, unsafe_allow_html=True)
+
+@st.cache_resource(show_spinner=False)
 def load_pipeline():
     pipe = StableDiffusionPipeline.from_pretrained(
         "CompVis/stable-diffusion-v1-4",
         torch_dtype=torch.float32
     )
-    pipe.to("cpu")
+    pipe = pipe.to("cuda" if torch.cuda.is_available() else "cpu")
     return pipe
 
-pipe = load_pipeline()
+# Write the app code to app.py
+with open("app.py", "w") as f:
+    f.write("\n".join([line for line in write_app.__code__.co_consts if isinstance(line, str)]) or "")
 
-# ---------- GENERATE IMAGE ----------
-if submit:
-    if not prompt.strip():
-        st.warning("Please enter a prompt.")
-    else:
-        with st.spinner("Generating your premium image..."):
-            result = pipe(prompt)
-            image = result.images[0]
-            st.markdown('<div class="image-container">', unsafe_allow_html=True)
-            st.image(image, caption="Generated Image", use_column_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+# Run app in background thread
+def run():
+    os.system("streamlit run app.py")
 
-# ---------- DESCRIPTION ----------
-st.markdown("""
-<div class='description'>
-    <strong>How to write great prompts:</strong><br>
-    Be specific! Instead of "a cat", try "a white fluffy cat lounging on a cozy chair in sunlight".<br>
-    Use styles like "in cyberpunk style", "as a 3D render", or "with oil painting effect" for better results.<br>
-    You can include lighting (golden hour, neon), locations (in a desert, on Mars), moods (dramatic, peaceful), and more!
-</div>
-""", unsafe_allow_html=True)
+threading.Thread(target=run, daemon=True).start()
+
+# Expose via ngrok (no token needed if public/free usage)
+public_url = ngrok.connect(8501)
+print(f"🔗 App is live at: {public_url}")
